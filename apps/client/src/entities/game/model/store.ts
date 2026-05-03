@@ -31,6 +31,7 @@ export interface GameState {
   faceUpRemoved: CardInfo[];
   pendingActionType: string;
   pendingCardValue: number;
+  pendingCardName: string;
   sycophantTarget: string;
   localSessionId: string;
   lastPlayedCardName: string;
@@ -50,7 +51,7 @@ interface GameStore extends GameState {
   setLocalSessionId: (sessionId: string) => void;
   setDeckRemaining: (count: number) => void;
   setFaceUpRemoved: (cards: CardInfo[]) => void;
-  setPendingAction: (type: string, cardValue: number) => void;
+  setPendingAction: (type: string, cardValue: number, cardName?: string) => void;
   setSycophantTarget: (target: string) => void;
   addGameEvent: (event: { type: string; payload: Record<string, unknown> }) => void;
   setRoundWinner: (winner: string) => void;
@@ -71,6 +72,7 @@ const initialState: GameState = {
   faceUpRemoved: [],
   pendingActionType: "",
   pendingCardValue: -1,
+  pendingCardName: "",
   sycophantTarget: "",
   localSessionId: "",
   lastPlayedCardName: "",
@@ -99,8 +101,8 @@ export const useGameStore = create<GameStore>((set) => ({
   setLocalSessionId: (sessionId) => set({ localSessionId: sessionId }),
   setDeckRemaining: (count) => set({ deckRemaining: count }),
   setFaceUpRemoved: (cards) => set({ faceUpRemoved: cards }),
-  setPendingAction: (type, cardValue) =>
-    set({ pendingActionType: type, pendingCardValue: cardValue }),
+  setPendingAction: (type, cardValue, cardName = "") =>
+    set({ pendingActionType: type, pendingCardValue: cardValue, pendingCardName: cardName }),
   setSycophantTarget: (target) => set({ sycophantTarget: target }),
   addGameEvent: (event) =>
     set((state) => ({

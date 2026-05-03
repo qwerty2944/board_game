@@ -108,9 +108,24 @@ export function isValidGuardGuess(value: number, useExtendedDeck: boolean): bool
 /**
  * Check if a card requires target selection.
  */
-export function cardRequiresTarget(cardValue: number): boolean {
-  // Cards that require targeting another player
-  return [1, 2, 3, 5, 6, 7].includes(cardValue);
+export function cardRequiresTarget(cardValue: number, cardName?: string): boolean {
+  // Extended cards share values with base cards, so value alone is not enough.
+  if (cardName) {
+    if (cardName === "Assassin") return false;
+    if (cardName.includes("Jester")) return true;
+    if (cardName.includes("Handmaid")) return false;
+    if (cardName.includes("Sycophant")) return true;
+    if (cardName.includes("Count Guntram")) return false;
+    if (cardName.includes("Prince")) return true;
+    if (cardName.includes("Constable")) return false;
+    if (cardName.includes("King")) return true;
+    if (cardName.includes("Countess")) return false;
+    if (cardName.includes("Dowager")) return true;
+    if (cardName.includes("Bishop")) return true;
+  }
+
+  // Base deck targeting cards.
+  return [1, 2, 3, 5, 6].includes(cardValue);
 }
 
 /**

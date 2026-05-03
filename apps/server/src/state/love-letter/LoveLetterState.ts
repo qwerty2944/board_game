@@ -12,6 +12,7 @@ export class LoveLetterState extends BaseGameState {
   @type([CardState]) faceUpRemoved = new ArraySchema<CardState>();
   @type("string") pendingActionType: string = ""; // "awaiting_target" | "awaiting_effect_choice" | ""
   @type("number") pendingCardValue: number = -1;
+  @type("string") pendingCardName: string = "";
   @type("string") sycophantTarget: string = "";
   @type("string") lastPlayedCardName: string = "";
   @type("number") lastPlayedCardValue: number = -1;

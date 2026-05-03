@@ -9,6 +9,9 @@ export class LoveLetterScene extends Phaser.Scene {
   private deckText!: Phaser.GameObjects.Text;
   private turnIndicator!: Phaser.GameObjects.Text;
   private centerText!: Phaser.GameObjects.Text;
+  private targetHintText!: Phaser.GameObjects.Text;
+  private targetButtons: Phaser.GameObjects.Container[] = [];
+  private selectedTargetIds: string[] = [];
   private unsubscribe?: () => void;
   private prevState: {
     currentTurnSessionId: string;
@@ -62,6 +65,15 @@ export class LoveLetterScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setAlpha(0);
 
+    this.targetHintText = this.add
+      .text(width / 2, height / 2 + 36, "", {
+        fontSize: "18px",
+        color: "#00ffaa",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5)
+      .setVisible(false);
+
     // Subscribe to store changes
     this.unsubscribe = useGameStore.subscribe((state) => {
       this.onStateUpdate(state);
@@ -96,6 +108,8 @@ export class LoveLetterScene extends Phaser.Scene {
     if (localPlayer) {
       this.updateHandCards(localPlayer.hand, state);
     }
+
+    this.updateTargetSelection(state);
 
     // Save state for next diff
     this.prevState = {
@@ -283,9 +297,186 @@ export class LoveLetterScene extends Phaser.Scene {
     }
   }
 
+  private updateTargetSelection(state: any) {
+    this.clearTargetButtons();
+
+    const isMyPendingAction =
+      state.pendingActionType === "awaiting_target" &&
+      state.currentTurnSessionId === state.localSessionId;
+
+    if (!isMyPendingAction) {
+      this.selectedTargetIds = [];
+      this.targetHintText.setVisible(false);
+      return;
+    }
+
+    const targets = this.getSelectableTargets(state);
+    if (targets.length === 0) {
+      this.targetHintText.setText("\uc120\ud0dd \uac00\ub2a5\ud55c \ub300\uc0c1\uc774 \uc5c6\uc2b5\ub2c8\ub2e4");
+      this.targetHintText.setVisible(true);
+      return;
+    }
+
+    const isCardinal = state.pendingCardName.includes("Cardinal");
+    this.targetHintText.setText(
+      isCardinal
+        ? "\uad50\ud658\ud560 \ub300\uc0c1 2\uba85\uc744 \uc120\ud0dd\ud558\uc138\uc694"
+        : "\ub300\uc0c1\uc744 \uc120\ud0dd\ud558\uc138\uc694"
+    );
+    this.targetHintText.setVisible(true);
+
+    for (const target of targets) {
+      const pos = this.getTargetButtonPosition(target.sessionId, state);
+      this.createTargetButton(target, pos.x, pos.y, state);
+    }
+  }
+
+  private getSelectableTargets(state: any): PlayerState[] {
+    const cardValue = state.pendingCardValue;
+    const cardName = state.pendingCardName || "";
+    const localSessionId = state.localSessionId;
+    let targets = (Array.from(state.players.values()) as PlayerState[]).filter((player) => {
+      if (!player.isAlive) return false;
+      if (player.isProtected) return false;
+      if (player.sessionId === localSessionId) {
+        return cardValue === 5 && !cardName.includes("Count");
+      }
+      return true;
+    }) as PlayerState[];
+
+    if (state.sycophantTarget && cardValue !== 4) {
+      targets = targets.filter((player) => player.sessionId === state.sycophantTarget);
+    }
+
+    return targets;
+  }
+
+  private getTargetButtonPosition(sessionId: string, state: any): { x: number; y: number } {
+    const { width, height } = this.cameras.main;
+    if (sessionId === state.localSessionId) {
+      return { x: width / 2, y: height - 250 };
+    }
+
+    const area = this.playerAreas.get(sessionId);
+    if (area) {
+      return { x: area.x, y: area.y + 58 };
+    }
+
+    return { x: width / 2, y: height / 2 + 90 };
+  }
+
+  private createTargetButton(player: PlayerState, x: number, y: number, state: any) {
+    const isSelected = this.selectedTargetIds.includes(player.sessionId);
+    const container = this.add.container(x, y);
+    const bg = this.add
+      .rectangle(0, 0, 132, 34, isSelected ? 0x00ffaa : 0xe94560, isSelected ? 0.95 : 0.9)
+      .setStrokeStyle(2, 0xffffff, 0.85);
+    const label = this.add
+      .text(0, 0, player.sessionId === state.localSessionId ? "\ub098" : player.name, {
+        fontSize: "14px",
+        color: isSelected ? "#10231d" : "#ffffff",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5);
+
+    container.add([bg, label]);
+    container.setSize(132, 34);
+    container.setInteractive(
+      new Phaser.Geom.Rectangle(-66, -17, 132, 34),
+      Phaser.Geom.Rectangle.Contains
+    );
+    container.on("pointerup", () => this.onTargetClicked(player.sessionId, state));
+    this.targetButtons.push(container);
+  }
+
+  private onTargetClicked(targetSessionId: string, state: any) {
+    if (state.pendingCardName.includes("Cardinal")) {
+      if (this.selectedTargetIds.includes(targetSessionId)) {
+        this.selectedTargetIds = this.selectedTargetIds.filter((id) => id !== targetSessionId);
+      } else if (this.selectedTargetIds.length < 2) {
+        this.selectedTargetIds = [...this.selectedTargetIds, targetSessionId];
+      }
+
+      if (this.selectedTargetIds.length < 2) {
+        this.updateTargetSelection({ ...state });
+        return;
+      }
+
+      this.sendTargetSelection(this.selectedTargetIds[0], state, [...this.selectedTargetIds]);
+      this.selectedTargetIds = [];
+      return;
+    }
+
+    const selectedPlayerIds = state.pendingCardName.includes("Baroness")
+      ? [targetSessionId]
+      : undefined;
+    this.sendTargetSelection(targetSessionId, state, selectedPlayerIds);
+  }
+
+  private sendTargetSelection(
+    targetSessionId: string,
+    state: any,
+    selectedPlayerIds?: string[]
+  ) {
+    const payload: {
+      targetSessionId: string;
+      guessedValue?: number;
+      selectedPlayerIds?: string[];
+      optionalDraw?: boolean;
+    } = { targetSessionId };
+
+    if (selectedPlayerIds) {
+      payload.selectedPlayerIds = selectedPlayerIds;
+    }
+
+    if (this.requiresGuess(state.pendingCardValue, state.pendingCardName)) {
+      const guess = this.promptForGuess(state.pendingCardValue, state.pendingCardName);
+      if (guess === null) return;
+      payload.guessedValue = guess;
+      if (state.pendingCardName.includes("Bishop")) {
+        payload.optionalDraw = false;
+      }
+    }
+
+    const room = this.game.registry.get("room");
+    if (room) {
+      room.send("select_target", payload);
+    }
+    this.clearTargetButtons();
+    this.targetHintText.setVisible(false);
+  }
+
+  private requiresGuess(cardValue: number, cardName: string): boolean {
+    return cardValue === 1 || cardName.includes("Bishop");
+  }
+
+  private promptForGuess(cardValue: number, cardName: string): number | null {
+    const input = window.prompt(
+      cardName.includes("Bishop")
+        ? "\ucd94\uce21\ud560 \uce74\ub4dc \uc22b\uc790\ub97c \uc785\ub825\ud558\uc138\uc694 (0-9)"
+        : "\ucd94\uce21\ud560 \uce74\ub4dc \uc22b\uc790\ub97c \uc785\ub825\ud558\uc138\uc694 (2-8)",
+      cardValue === 1 ? "2" : "5"
+    );
+    if (input === null) return null;
+
+    const guess = Number(input);
+    if (!Number.isInteger(guess)) return null;
+    if (cardValue === 1 && guess === 1) return null;
+    if (cardName.includes("Bishop")) {
+      return guess >= 0 && guess <= 9 ? guess : null;
+    }
+    return guess >= 2 && guess <= 8 ? guess : null;
+  }
+
+  private clearTargetButtons() {
+    this.targetButtons.forEach((button) => button.destroy());
+    this.targetButtons = [];
+  }
+
   shutdown() {
     this.unsubscribe?.();
     this.playerAreas.forEach((area) => area.destroy());
     this.handCards.forEach((card) => card.destroy());
+    this.clearTargetButtons();
   }
 }

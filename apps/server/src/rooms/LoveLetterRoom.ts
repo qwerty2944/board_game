@@ -173,9 +173,12 @@ export class LoveLetterRoom extends BaseGameRoom<LoveLetterState> {
     if (this.gameState.pendingAction) {
       this.state.pendingActionType = this.gameState.pendingAction.type;
       this.state.pendingCardValue = this.gameState.pendingAction.cardValue;
+      this.state.pendingCardName =
+        this.gameState.cardNames.get(this.gameState.pendingAction.cardId) ?? "";
     } else {
       this.state.pendingActionType = "";
       this.state.pendingCardValue = -1;
+      this.state.pendingCardName = "";
     }
 
     // Face-up removed cards

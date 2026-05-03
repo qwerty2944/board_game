@@ -11,6 +11,7 @@ import {
   mustDiscardCountess,
   getPlayableCards,
   getValidTargets,
+  isValidTarget,
   cardRequiresTarget,
   allOthersProtected,
   isValidGuardGuess,
@@ -195,6 +196,7 @@ export class LoveLetterEngine extends GameEngine<LoveLetterGameState, LoveLetter
 
     const cardValue = state.cardValues.get(cardId);
     if (cardValue === undefined) return state;
+    const cardName = state.cardNames.get(cardId);
 
     // Check Countess constraint
     const handValues = player.hand.map((id) => state.cardValues.get(id) ?? 0);
@@ -222,7 +224,7 @@ export class LoveLetterEngine extends GameEngine<LoveLetterGameState, LoveLetter
     });
 
     // Check if card requires target
-    const needsTarget = cardRequiresTarget(cardValue);
+    const needsTarget = cardRequiresTarget(cardValue, cardName);
     const validTargets = needsTarget
       ? getValidTargets(newState, currentSessionId, cardValue)
       : [];
@@ -257,7 +259,33 @@ export class LoveLetterEngine extends GameEngine<LoveLetterGameState, LoveLetter
   ): LoveLetterGameState {
     if (!state.pendingAction) return state;
 
-    const { actorId, cardValue } = state.pendingAction;
+    const { actorId, cardValue, cardId } = state.pendingAction;
+    const cardName = state.cardNames.get(cardId);
+    const validTargets = getValidTargets(state, actorId, cardValue);
+    const selectedTargets = action.selectedPlayerIds?.length
+      ? action.selectedPlayerIds
+      : action.targetSessionId
+        ? [action.targetSessionId]
+        : [];
+
+    if (cardRequiresTarget(cardValue, cardName)) {
+      if (selectedTargets.length === 0 && validTargets.length > 0) return state;
+
+      for (const targetId of selectedTargets) {
+        if (!isValidTarget(state, actorId, targetId, cardValue)) return state;
+      }
+    }
+
+    if (cardValue === 1 && !isValidGuardGuess(action.guessedValue ?? -1, state.useExtendedDeck)) {
+      return state;
+    }
+
+    if (
+      cardName?.includes("Bishop") &&
+      (action.guessedValue === undefined || action.guessedValue < 0 || action.guessedValue > 9)
+    ) {
+      return state;
+    }
 
     // Clear pending action
     const newState: LoveLetterGameState = {

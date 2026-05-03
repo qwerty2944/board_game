@@ -64,7 +64,24 @@ export function useRoom(room: Room | null) {
 
     unsubscribers.push($state.listen("pendingActionType", (value: string) => {
       const cardValue = room.state.pendingCardValue ?? -1;
-      store.getState().setPendingAction(value, cardValue);
+      const cardName = room.state.pendingCardName ?? "";
+      store.getState().setPendingAction(value, cardValue, cardName);
+    }));
+
+    unsubscribers.push($state.listen("pendingCardValue", (value: number) => {
+      store.getState().setPendingAction(
+        room.state.pendingActionType || "",
+        value ?? -1,
+        room.state.pendingCardName ?? ""
+      );
+    }));
+
+    unsubscribers.push($state.listen("pendingCardName", (value: string) => {
+      store.getState().setPendingAction(
+        room.state.pendingActionType || "",
+        room.state.pendingCardValue ?? -1,
+        value || ""
+      );
     }));
 
     unsubscribers.push($state.listen("sycophantTarget", (value: string) => {
@@ -157,7 +174,11 @@ function syncBaseState(room: Room) {
   store.setHostSessionId(state.hostSessionId || "");
   store.setCurrentTurn(state.currentTurnSessionId || "");
   store.setDeckRemaining(state.deckRemaining ?? 0);
-  store.setPendingAction(state.pendingActionType || "", state.pendingCardValue ?? -1);
+  store.setPendingAction(
+    state.pendingActionType || "",
+    state.pendingCardValue ?? -1,
+    state.pendingCardName || ""
+  );
   store.setSycophantTarget(state.sycophantTarget || "");
   store.setLastPlayedCard(state.lastPlayedCardName || "", state.lastPlayedCardValue ?? -1);
   store.setRoundWinner(state.roundWinner || "");
