@@ -14,22 +14,22 @@ interface Props {
 export function PreGameLobby({ room, sendMessage }: Props) {
   const players = useGameStore((s) => s.players);
   const localSessionId = useGameStore((s) => s.localSessionId);
+  const roomCode = useGameStore((s) => s.roomCode);
+  const hostSessionId = useGameStore((s) => s.hostSessionId);
 
   const handleReady = () => sendMessage("ready");
   const handleStart = () => sendMessage("start_game");
 
-  const isHost = room?.state?.hostSessionId === localSessionId;
+  const isHost = hostSessionId === localSessionId;
 
   return (
     <div className="flex h-dvh flex-col items-center justify-center gap-6 p-6">
       <Card className="w-full max-w-md border-gray-700 bg-gray-900/80">
         <CardHeader>
           <CardTitle className="text-center">대기실</CardTitle>
-          {room && (
-            <p className="text-center text-sm text-gray-400">
-              방 코드: <span className="font-mono font-bold text-white">{room.state?.roomCode || "..."}</span>
-            </p>
-          )}
+          <p className="text-center text-sm text-gray-400">
+            방 코드: <span className="font-mono font-bold text-white">{roomCode || "..."}</span>
+          </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="space-y-2">
@@ -40,11 +40,22 @@ export function PreGameLobby({ room, sendMessage }: Props) {
                 className="flex items-center justify-between rounded-lg bg-gray-800 px-3 py-2"
               >
                 <span className="text-white">{player.name}</span>
-                <Badge variant={player.sessionId === localSessionId ? "default" : "outline"}>
-                  {player.sessionId === localSessionId ? "나" : "대기중"}
-                </Badge>
+                <div className="flex gap-1">
+                  {player.sessionId === hostSessionId && (
+                    <Badge variant="secondary">방장</Badge>
+                  )}
+                  {player.isReady && (
+                    <Badge variant="default">준비됨</Badge>
+                  )}
+                  {player.sessionId === localSessionId && (
+                    <Badge variant="outline">나</Badge>
+                  )}
+                </div>
               </div>
             ))}
+            {players.size === 0 && (
+              <p className="py-2 text-center text-sm text-gray-500">참가자 로딩 중...</p>
+            )}
           </div>
 
           <div className="flex gap-2">

@@ -20,6 +20,7 @@ export function RoomView() {
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
   const joinedRef = useRef(false);
+  const roomRef = useRef<Room | null>(null);
 
   const { sendMessage } = useRoom(room);
   const phase = useGameStore((s) => s.phase);
@@ -33,6 +34,7 @@ export function RoomView() {
         const client = getColyseusClient();
         const token = await getGameToken();
         const joinedRoom = await client.joinById(roomId, { token });
+        roomRef.current = joinedRoom;
         setRoom(joinedRoom);
 
         joinedRoom.onLeave((code) => {
@@ -53,7 +55,8 @@ export function RoomView() {
     connect();
 
     return () => {
-      room?.leave();
+      roomRef.current?.leave();
+      useGameStore.getState().reset();
     };
   }, [session, roomId]);
 
@@ -82,11 +85,6 @@ export function RoomView() {
       </main>
     );
   }
-
-  const isInGame =
-    phase === "playing" ||
-    phase === "awaiting_target" ||
-    phase === "awaiting_effect_choice";
 
   return (
     <main className="relative flex h-dvh flex-col">

@@ -15,10 +15,14 @@ export interface PlayerState {
   handCount: number;
   hand: CardInfo[];
   discardedCards: CardInfo[];
+  isReady: boolean;
+  isConnected: boolean;
 }
 
 export interface GameState {
   phase: string;
+  roomCode: string;
+  hostSessionId: string;
   currentTurnSessionId: string;
   currentRound: number;
   deckRemaining: number;
@@ -38,6 +42,8 @@ export interface GameState {
 
 interface GameStore extends GameState {
   setPhase: (phase: string) => void;
+  setRoomCode: (code: string) => void;
+  setHostSessionId: (id: string) => void;
   setCurrentTurn: (sessionId: string) => void;
   setPlayers: (players: Map<string, PlayerState>) => void;
   updatePlayer: (sessionId: string, update: Partial<PlayerState>) => void;
@@ -55,6 +61,8 @@ interface GameStore extends GameState {
 
 const initialState: GameState = {
   phase: "waiting",
+  roomCode: "",
+  hostSessionId: "",
   currentTurnSessionId: "",
   currentRound: 0,
   deckRemaining: 0,
@@ -75,6 +83,8 @@ const initialState: GameState = {
 export const useGameStore = create<GameStore>((set) => ({
   ...initialState,
   setPhase: (phase) => set({ phase }),
+  setRoomCode: (code) => set({ roomCode: code }),
+  setHostSessionId: (id) => set({ hostSessionId: id }),
   setCurrentTurn: (sessionId) => set({ currentTurnSessionId: sessionId }),
   setPlayers: (players) => set({ players }),
   updatePlayer: (sessionId, update) =>

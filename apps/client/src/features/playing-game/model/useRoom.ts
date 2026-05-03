@@ -20,10 +20,20 @@ export function useRoom(room: Room | null) {
 
     const $state = $(room.state);
 
+    // Base state fields
     $state.listen("phase", (value: string) => {
       store.getState().setPhase(value);
     });
 
+    $state.listen("roomCode", (value: string) => {
+      store.getState().setRoomCode(value);
+    });
+
+    $state.listen("hostSessionId", (value: string) => {
+      store.getState().setHostSessionId(value);
+    });
+
+    // Love Letter specific fields
     $state.listen("currentTurnSessionId", (value: string) => {
       store.getState().setCurrentTurn(value);
     });
@@ -54,16 +64,32 @@ export function useRoom(room: Room | null) {
       store.getState().setGameWinner(value);
     });
 
+    // Base players (used during waiting/lobby phase)
+    $state.players?.onAdd((player: any, sessionId: string) => {
+      syncBasePlayer(sessionId, player);
+      const $player = $(player);
+      $player.listen("name", () => syncBasePlayer(sessionId, player));
+      $player.listen("isReady", () => syncBasePlayer(sessionId, player));
+      $player.listen("isConnected", () => syncBasePlayer(sessionId, player));
+    });
+
+    $state.players?.onRemove((_player: any, sessionId: string) => {
+      const players = new Map(store.getState().players);
+      players.delete(sessionId);
+      store.getState().setPlayers(players);
+    });
+
+    // Love Letter players (used during playing phase)
     $state.llPlayers?.onAdd((player: any, sessionId: string) => {
       const $player = $(player);
-      syncPlayer(sessionId, player);
-      $player.listen("isAlive", () => syncPlayer(sessionId, player));
-      $player.listen("isProtected", () => syncPlayer(sessionId, player));
-      $player.listen("tokens", () => syncPlayer(sessionId, player));
-      $player.listen("handCount", () => syncPlayer(sessionId, player));
-      $player.hand?.onAdd(() => syncPlayer(sessionId, player));
-      $player.hand?.onRemove(() => syncPlayer(sessionId, player));
-      $player.discardedCards?.onAdd(() => syncPlayer(sessionId, player));
+      syncLLPlayer(sessionId, player);
+      $player.listen("isAlive", () => syncLLPlayer(sessionId, player));
+      $player.listen("isProtected", () => syncLLPlayer(sessionId, player));
+      $player.listen("tokens", () => syncLLPlayer(sessionId, player));
+      $player.listen("handCount", () => syncLLPlayer(sessionId, player));
+      $player.hand?.onAdd(() => syncLLPlayer(sessionId, player));
+      $player.hand?.onRemove(() => syncLLPlayer(sessionId, player));
+      $player.discardedCards?.onAdd(() => syncLLPlayer(sessionId, player));
     });
 
     $state.llPlayers?.onRemove((_player: any, sessionId: string) => {
@@ -95,7 +121,28 @@ export function useRoom(room: Room | null) {
   return { sendMessage };
 }
 
-function syncPlayer(sessionId: string, player: any) {
+function syncBasePlayer(sessionId: string, player: any) {
+  const store = useGameStore.getState();
+  const players = new Map(store.players);
+
+  const playerState: PlayerState = {
+    sessionId,
+    name: player.name || "",
+    isAlive: true,
+    isProtected: false,
+    tokens: 0,
+    handCount: 0,
+    hand: [],
+    discardedCards: [],
+    isReady: player.isReady ?? false,
+    isConnected: player.isConnected ?? true,
+  };
+
+  players.set(sessionId, playerState);
+  store.setPlayers(players);
+}
+
+function syncLLPlayer(sessionId: string, player: any) {
   const store = useGameStore.getState();
   const players = new Map(store.players);
 
@@ -124,6 +171,8 @@ function syncPlayer(sessionId: string, player: any) {
     handCount: player.handCount ?? 0,
     hand,
     discardedCards,
+    isReady: false,
+    isConnected: true,
   };
 
   players.set(sessionId, playerState);
