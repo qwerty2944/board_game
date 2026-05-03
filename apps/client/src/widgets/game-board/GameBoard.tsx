@@ -2,6 +2,9 @@
 
 import dynamic from "next/dynamic";
 import type { Room } from "colyseus.js";
+import { CardTooltip } from "./CardTooltip";
+import { GameHelpButton } from "./GameHelpButton";
+import { GameEventFeed } from "./GameEventFeed";
 
 const PhaserGameWrapper = dynamic(
   () => import("@/game/PhaserGameWrapper").then((mod) => ({ default: mod.PhaserGameWrapper })),
@@ -16,8 +19,11 @@ export function GameBoard({ room }: Props) {
   if (!room) return <div className="flex h-full items-center justify-center text-muted-foreground">연결 대기 중...</div>;
 
   return (
-    <div className="h-full w-full">
+    <div className="relative h-full w-full">
       <PhaserGameWrapper room={room} />
+      <CardTooltip />
+      <GameHelpButton />
+      <GameEventFeed />
     </div>
   );
 }

@@ -32,6 +32,9 @@ export function LobbyView() {
   const [rooms, setRooms] = useState<LobbyRoom[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isMatchmaking, setIsMatchmaking] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
+  const [isJoiningByCode, setIsJoiningByCode] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -56,12 +59,15 @@ export function LobbyView() {
   if (!session) return null;
 
   const handleJoinRoom = async (roomId: string) => {
+    setJoiningRoomId(roomId);
     try {
       const room = await joinRoomById(roomId);
       setPendingRoom(room);
       router.push(`/room/${room.roomId}`);
     } catch (err: any) {
       alert(err.message || "방 참가 실패");
+    } finally {
+      setJoiningRoomId(null);
     }
   };
 
@@ -71,6 +77,7 @@ export function LobbyView() {
     maxPlayers: number;
     password?: string;
   }) => {
+    setIsCreating(true);
     try {
       const room = await createRoom({
         ...options,
@@ -81,16 +88,21 @@ export function LobbyView() {
       router.push(`/room/${room.roomId}`);
     } catch (err: any) {
       alert(err.message || "방 생성 실패");
+    } finally {
+      setIsCreating(false);
     }
   };
 
   const handleJoinByCode = async (code: string, password?: string) => {
+    setIsJoiningByCode(true);
     try {
       const room = await joinByCode(code, password);
       setPendingRoom(room);
       router.push(`/room/${room.roomId}`);
     } catch (err: any) {
       alert(err.message || "방을 찾을 수 없습니다");
+    } finally {
+      setIsJoiningByCode(false);
     }
   };
 
@@ -112,18 +124,20 @@ export function LobbyView() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-white">로비</h1>
         <div className="flex gap-3">
-          <Button onClick={openCreateRoomModal}>방 만들기</Button>
+          <Button onClick={openCreateRoomModal} loading={isCreating}>
+            방 만들기
+          </Button>
           <Button
             onClick={handleMatchmaking}
-            disabled={isMatchmaking}
+            loading={isMatchmaking}
             variant="secondary"
           >
-            {isMatchmaking ? "매칭 중..." : "빠른 매칭"}
+            빠른 매칭
           </Button>
         </div>
       </div>
 
-      <JoinByCodeForm onJoin={handleJoinByCode} />
+      <JoinByCodeForm onJoin={handleJoinByCode} loading={isJoiningByCode} />
 
       <div className="mt-6">
         <div className="mb-3 flex items-center gap-2">
@@ -154,6 +168,7 @@ export function LobbyView() {
                 metadata={room.metadata}
                 clients={room.clients}
                 onJoin={handleJoinRoom}
+                loading={joiningRoomId === room.roomId}
               />
             ))}
           </div>
@@ -164,6 +179,7 @@ export function LobbyView() {
         open={isCreateRoomModalOpen}
         onOpenChange={(open) => (open ? openCreateRoomModal() : closeCreateRoomModal())}
         onCreate={handleCreateRoom}
+        loading={isCreating}
       />
     </main>
   );

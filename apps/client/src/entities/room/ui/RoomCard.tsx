@@ -10,9 +10,10 @@ interface Props {
   metadata: RoomMetadata;
   clients: number;
   onJoin: (roomId: string) => void;
+  loading?: boolean;
 }
 
-export function RoomCard({ roomId, metadata, clients, onJoin }: Props) {
+export function RoomCard({ roomId, metadata, clients, onJoin, loading }: Props) {
   return (
     <Card className="border-gray-700 bg-gray-800/50">
       <CardContent className="flex items-center justify-between p-4">
@@ -37,6 +38,7 @@ export function RoomCard({ roomId, metadata, clients, onJoin }: Props) {
           size="sm"
           onClick={() => onJoin(roomId)}
           disabled={clients >= metadata.maxPlayers}
+          loading={loading}
         >
           {clients >= metadata.maxPlayers ? "만석" : "입장"}
         </Button>

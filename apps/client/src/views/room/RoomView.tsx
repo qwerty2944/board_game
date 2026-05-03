@@ -11,6 +11,7 @@ import { PreGameLobby } from "@/widgets/pre-game-lobby/PreGameLobby";
 import { ChatPanel } from "@/widgets/chat/ChatPanel";
 import { GameBoard } from "@/widgets/game-board/GameBoard";
 import { Button } from "@/shared/ui/button";
+import { ROOM_CLOSE_CODES } from "@board-game/shared";
 
 export function RoomView() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -44,7 +45,11 @@ export function RoomView() {
         setRoom(joinedRoom);
 
         joinedRoom.onLeave((code) => {
-          if (code === 4000) setError("방에서 추방당했습니다");
+          if (code === ROOM_CLOSE_CODES.KICKED) {
+            setError("방에서 추방당했습니다");
+          } else if (code === ROOM_CLOSE_CODES.PLAYER_LEFT_DURING_GAME) {
+            setError("참가자가 게임 중 나가서 방이 종료되었습니다");
+          }
           setRoom(null);
         });
 

@@ -82,6 +82,11 @@ export class LoveLetterRoom extends BaseGameRoom<LoveLetterState> {
     }
   }
 
+  protected onGameInterrupted(): void {
+    this.clearAutoPlayTimer();
+    this.gameState = null;
+  }
+
   private handlePlayCard(client: Client, message: PlayCardMessage): void {
     if (!this.gameState) return;
     if (this.gameState.phase !== "playing") return;

@@ -6,9 +6,10 @@ import { Input } from "@/shared/ui/input";
 
 interface Props {
   onJoin: (code: string, password?: string) => void;
+  loading?: boolean;
 }
 
-export function JoinByCodeForm({ onJoin }: Props) {
+export function JoinByCodeForm({ onJoin, loading }: Props) {
   const [code, setCode] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -28,7 +29,7 @@ export function JoinByCodeForm({ onJoin }: Props) {
         maxLength={6}
         className="w-36 uppercase"
       />
-      <Button type="submit" variant="outline" disabled={!code.trim()}>
+      <Button type="submit" variant="outline" disabled={!code.trim()} loading={loading}>
         코드로 입장
       </Button>
     </form>

@@ -46,3 +46,9 @@ export const MessageType = {
 } as const;
 
 export type MessageTypeValue = (typeof MessageType)[keyof typeof MessageType];
+
+export const ROOM_CLOSE_CODES = {
+  KICKED: 4000,
+  SESSION_REPLACED: 4001,
+  PLAYER_LEFT_DURING_GAME: 4002,
+} as const;

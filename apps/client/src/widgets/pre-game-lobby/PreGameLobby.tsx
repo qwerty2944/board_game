@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useGameStore } from "@/entities/game/model/store";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -16,12 +17,23 @@ export function PreGameLobby({ room, sendMessage }: Props) {
   const localSessionId = useGameStore((s) => s.localSessionId);
   const roomCode = useGameStore((s) => s.roomCode);
   const hostSessionId = useGameStore((s) => s.hostSessionId);
+  const [isTogglingReady, setIsTogglingReady] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   const localPlayer = localSessionId ? players.get(localSessionId) : undefined;
   const isLocalReady = localPlayer?.isReady ?? false;
 
-  const handleReady = () => sendMessage("ready", { ready: !isLocalReady });
-  const handleStart = () => sendMessage("start_game");
+  const handleReady = () => {
+    setIsTogglingReady(true);
+    sendMessage("ready", { ready: !isLocalReady });
+    setTimeout(() => setIsTogglingReady(false), 500);
+  };
+
+  const handleStart = () => {
+    setIsStarting(true);
+    sendMessage("start_game");
+    setTimeout(() => setIsStarting(false), 2000);
+  };
 
   const isHost = hostSessionId === localSessionId;
 
@@ -66,11 +78,17 @@ export function PreGameLobby({ room, sendMessage }: Props) {
               onClick={handleReady}
               variant={isLocalReady ? "secondary" : "default"}
               className="flex-1"
+              loading={isTogglingReady}
             >
               {isLocalReady ? "준비 취소" : "준비"}
             </Button>
             {isHost && (
-              <Button onClick={handleStart} variant="destructive" className="flex-1">
+              <Button
+                onClick={handleStart}
+                variant="destructive"
+                className="flex-1"
+                loading={isStarting}
+              >
                 게임 시작
               </Button>
             )}

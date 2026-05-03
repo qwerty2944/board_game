@@ -6,6 +6,7 @@ import {
   ROOM_CODE_LENGTH,
   RECONNECT_TIMEOUT_MS,
   MessageType,
+  ROOM_CLOSE_CODES,
   type RoomCreateOptions,
   type RoomMetadata,
 } from "@board-game/shared";
@@ -14,6 +15,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
   private password?: string;
   private reconnectTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
   private userToSession = new Map<string, string>(); // userId -> sessionId
+  private isClosingAfterPlayerLeft = false;
 
   async onCreate(options: RoomCreateOptions) {
     const state = this.createState();
@@ -58,6 +60,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
   abstract startGame(): void;
   abstract canStart(): boolean;
   abstract handlePlayerDisconnect(sessionId: string): void;
+  protected onGameInterrupted(): void {}
 
   async onAuth(client: Client, options: { token?: string; password?: string }) {
     // Verify game JWT
@@ -85,7 +88,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
       // Kick the old client connection
       const oldClient = this.clients.find((c) => c.sessionId === prevSessionId);
       if (oldClient) {
-        oldClient.leave(4001); // Silent replace
+        oldClient.leave(ROOM_CLOSE_CODES.SESSION_REPLACED); // Silent replace
       }
 
       // Preserve host status for the new session
@@ -127,10 +130,17 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
   }
 
   async onLeave(client: Client, consented: boolean) {
+    if (this.isClosingAfterPlayerLeft) return;
+
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
 
     player.isConnected = false;
+
+    if (this.isGameInProgress()) {
+      await this.closeAfterPlayerLeftDuringGame();
+      return;
+    }
 
     if (consented) {
       // Player deliberately left
@@ -216,7 +226,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
         (c) => c.sessionId === message.targetSessionId
       );
       if (targetClient) {
-        targetClient.leave(4000); // Custom close code for kick
+        targetClient.leave(ROOM_CLOSE_CODES.KICKED);
       }
     });
   }
@@ -252,5 +262,24 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
   private updateReadinessPhase() {
     if (this.state.phase !== "waiting" && this.state.phase !== "ready") return;
     this.state.phase = this.canStart() ? "ready" : "waiting";
+  }
+
+  private isGameInProgress() {
+    return this.state.phase !== "waiting" &&
+      this.state.phase !== "ready" &&
+      this.state.phase !== "game_over";
+  }
+
+  private async closeAfterPlayerLeftDuringGame() {
+    this.isClosingAfterPlayerLeft = true;
+    this.state.phase = "game_over";
+    this.updateMetadataStatus("finished");
+    this.onGameInterrupted();
+
+    for (const roomClient of [...this.clients]) {
+      roomClient.leave(ROOM_CLOSE_CODES.PLAYER_LEFT_DURING_GAME);
+    }
+
+    await this.disconnect();
   }
 }

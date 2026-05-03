@@ -23,9 +23,10 @@ interface Props {
     maxPlayers: number;
     password?: string;
   }) => void;
+  loading?: boolean;
 }
 
-export function CreateRoomModal({ open, onOpenChange, onCreate }: Props) {
+export function CreateRoomModal({ open, onOpenChange, onCreate, loading }: Props) {
   const [gameId, setGameId] = useState(games[0]?.id ?? "love_letter");
   const selectedGame = GAME_REGISTRY[gameId];
   const [maxPlayers, setMaxPlayers] = useState(selectedGame?.maxPlayers ?? 4);
@@ -106,7 +107,7 @@ export function CreateRoomModal({ open, onOpenChange, onCreate }: Props) {
               />
             </div>
           )}
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full" loading={loading}>
             방 만들기
           </Button>
         </form>
