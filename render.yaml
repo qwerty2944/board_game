@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: board-game-server
+    runtime: docker
+    repo: https://github.com/qwerty2944/board_game
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: GAME_JWT_SECRET
+        value: dev-secret-change-in-production
+      - key: NODE_ENV
+        value: production
