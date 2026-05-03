@@ -64,15 +64,15 @@ export function LobbyView() {
   };
 
   const handleCreateRoom = async (options: {
+    gameId: string;
     isPrivate: boolean;
     maxPlayers: number;
     password?: string;
   }) => {
     try {
       const room = await createRoom({
-        gameId: "love_letter",
-        hostName: session.user?.name || "호스트",
         ...options,
+        hostName: session.user?.name || "호스트",
       });
       closeCreateRoomModal();
       router.push(`/room/${room.roomId}`);

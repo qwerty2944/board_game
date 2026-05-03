@@ -5,7 +5,7 @@ import type { RoomCreateOptions, RoomMetadata } from "@board-game/shared";
 export async function createRoom(options: RoomCreateOptions): Promise<Room> {
   const client = getColyseusClient();
   const token = await getGameToken();
-  return client.create("love_letter", { ...options, token });
+  return client.create(options.gameId, { ...options, token });
 }
 
 export async function joinRoomById(roomId: string, password?: string): Promise<Room> {
