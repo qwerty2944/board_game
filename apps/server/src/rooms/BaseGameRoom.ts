@@ -76,6 +76,31 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
   }
 
   async onJoin(client: Client, options: any, auth: VerifiedUser) {
+    // Remove previous session for the same user (prevents duplicates)
+    const prevSessionId = this.userToSession.get(auth.id);
+    if (prevSessionId && prevSessionId !== client.sessionId) {
+      const wasHost = this.state.hostSessionId === prevSessionId;
+      this.state.players.delete(prevSessionId);
+
+      // Kick the old client connection
+      const oldClient = this.clients.find((c) => c.sessionId === prevSessionId);
+      if (oldClient) {
+        oldClient.leave(4001); // Silent replace
+      }
+
+      // Preserve host status for the new session
+      if (wasHost) {
+        this.state.hostSessionId = client.sessionId;
+      }
+    }
+
+    // Cancel reconnect timeout if this is a reconnection
+    const existingTimeout = this.reconnectTimeouts.get(auth.id);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      this.reconnectTimeouts.delete(auth.id);
+    }
+
     const player = new PlayerSchema();
     player.sessionId = client.sessionId;
     player.name = auth.name;
@@ -87,20 +112,13 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
     this.userToSession.set(auth.id, client.sessionId);
 
     // First player is host
-    if (this.state.players.size === 1) {
+    if (!this.state.hostSessionId || !this.state.players.has(this.state.hostSessionId)) {
       this.state.hostSessionId = client.sessionId;
     }
 
     // Update metadata
     await this.updatePlayerCount();
     this.updateReadinessPhase();
-
-    // Cancel reconnect timeout if this is a reconnection
-    const existingTimeout = this.reconnectTimeouts.get(auth.id);
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-      this.reconnectTimeouts.delete(auth.id);
-    }
 
     this.broadcast(MessageType.PLAYER_JOINED, {
       sessionId: client.sessionId,
