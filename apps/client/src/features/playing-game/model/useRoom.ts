@@ -14,14 +14,31 @@ export function useRoom(room: Room | null) {
     roomRef.current = room;
 
     store.getState().setLocalSessionId(room.sessionId);
+    syncBaseState(room);
+
+    const unsubscribers: Array<(() => void) | undefined> = [];
+    const syncCurrentState = () => syncBaseState(room);
+    room.onStateChange(syncCurrentState);
+    unsubscribers.push(() => room.onStateChange.remove(syncCurrentState));
+
+    const initialSyncTimers = [
+      window.setTimeout(syncCurrentState, 0),
+      window.setTimeout(syncCurrentState, 150),
+      window.setTimeout(syncCurrentState, 500),
+    ];
+    unsubscribers.push(() => {
+      initialSyncTimers.forEach((timer) => window.clearTimeout(timer));
+    });
 
     const $ = getStateCallbacks(room) as any;
-    if (!$) return;
+    if (!$) {
+      return () => {
+        roomRef.current = null;
+        unsubscribers.forEach((unsubscribe) => unsubscribe?.());
+      };
+    }
 
     const $state = $(room.state);
-    const unsubscribers: Array<(() => void) | undefined> = [];
-
-    syncBaseState(room);
 
     // Base state fields
     unsubscribers.push($state.listen("phase", (value: string) => {
@@ -133,6 +150,7 @@ export function useRoom(room: Room | null) {
 function syncBaseState(room: Room) {
   const store = useGameStore.getState();
   const state = room.state as any;
+  if (!state) return;
 
   store.setPhase(state.phase || "waiting");
   store.setRoomCode(state.roomCode || "");
