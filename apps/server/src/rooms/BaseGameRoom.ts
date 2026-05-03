@@ -15,6 +15,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
   private password?: string;
   private reconnectTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
   private userToSession = new Map<string, string>(); // userId -> sessionId
+  private hostUserId: string = ""; // Track host by userId (survives reconnection)
   private isClosingAfterPlayerLeft = false;
 
   async onCreate(options: RoomCreateOptions) {
@@ -81,17 +82,8 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
   async onJoin(client: Client, options: any, auth: VerifiedUser) {
     // Remove previous session for the same user (prevents duplicates)
     const prevSessionId = this.userToSession.get(auth.id);
-    let shouldBeHost = false;
 
     if (prevSessionId && prevSessionId !== client.sessionId) {
-      shouldBeHost = this.state.hostSessionId === prevSessionId;
-
-      // Set host to new session BEFORE deleting old player,
-      // so other clients never see hostSessionId pointing to a missing player.
-      if (shouldBeHost) {
-        this.state.hostSessionId = client.sessionId;
-      }
-
       this.state.players.delete(prevSessionId);
 
       // Kick the old client connection
@@ -118,9 +110,14 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
     this.state.players.set(client.sessionId, player);
     this.userToSession.set(auth.id, client.sessionId);
 
-    // First player becomes host, or if current host somehow invalid
-    if (!this.state.hostSessionId || !this.state.players.has(this.state.hostSessionId)) {
+    // Assign host: restore if this is the original host user, or first player
+    if (this.hostUserId === auth.id) {
+      // Original host reconnecting — restore host status
       this.state.hostSessionId = client.sessionId;
+    } else if (!this.state.hostSessionId || !this.state.players.has(this.state.hostSessionId)) {
+      // First player or current host is invalid
+      this.state.hostSessionId = client.sessionId;
+      this.hostUserId = auth.id;
     }
 
     // Update metadata
@@ -172,7 +169,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
     this.state.players.delete(sessionId);
     await this.updatePlayerCount();
 
-    // Reassign host if host left
+    // Reassign host if host left (temporary — if original host reconnects, they reclaim it)
     if (this.state.hostSessionId === sessionId) {
       const remaining = Array.from(this.state.players.keys());
       if (remaining.length > 0) {
