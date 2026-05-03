@@ -17,7 +17,10 @@ export function PreGameLobby({ room, sendMessage }: Props) {
   const roomCode = useGameStore((s) => s.roomCode);
   const hostSessionId = useGameStore((s) => s.hostSessionId);
 
-  const handleReady = () => sendMessage("ready");
+  const localPlayer = localSessionId ? players.get(localSessionId) : undefined;
+  const isLocalReady = localPlayer?.isReady ?? false;
+
+  const handleReady = () => sendMessage("ready", { ready: !isLocalReady });
   const handleStart = () => sendMessage("start_game");
 
   const isHost = hostSessionId === localSessionId;
@@ -59,8 +62,12 @@ export function PreGameLobby({ room, sendMessage }: Props) {
           </div>
 
           <div className="flex gap-2">
-            <Button onClick={handleReady} className="flex-1">
-              준비
+            <Button
+              onClick={handleReady}
+              variant={isLocalReady ? "secondary" : "default"}
+              className="flex-1"
+            >
+              {isLocalReady ? "준비 취소" : "준비"}
             </Button>
             {isHost && (
               <Button onClick={handleStart} variant="destructive" className="flex-1">

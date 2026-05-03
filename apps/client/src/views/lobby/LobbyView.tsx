@@ -11,6 +11,7 @@ import {
   joinMatchmaking,
   getAvailableRooms,
 } from "@/entities/room/model/api";
+import { setPendingRoom } from "@/shared/lib/colyseus";
 import { RoomCard } from "@/entities/room/ui/RoomCard";
 import { CreateRoomModal } from "@/features/creating-room/ui/CreateRoomModal";
 import { JoinByCodeForm } from "@/features/joining-room/ui/JoinByCodeForm";
@@ -57,6 +58,7 @@ export function LobbyView() {
   const handleJoinRoom = async (roomId: string) => {
     try {
       const room = await joinRoomById(roomId);
+      setPendingRoom(room);
       router.push(`/room/${room.roomId}`);
     } catch (err: any) {
       alert(err.message || "방 참가 실패");
@@ -74,6 +76,7 @@ export function LobbyView() {
         ...options,
         hostName: session.user?.name || "호스트",
       });
+      setPendingRoom(room);
       closeCreateRoomModal();
       router.push(`/room/${room.roomId}`);
     } catch (err: any) {
@@ -84,6 +87,7 @@ export function LobbyView() {
   const handleJoinByCode = async (code: string, password?: string) => {
     try {
       const room = await joinByCode(code, password);
+      setPendingRoom(room);
       router.push(`/room/${room.roomId}`);
     } catch (err: any) {
       alert(err.message || "방을 찾을 수 없습니다");
@@ -94,6 +98,7 @@ export function LobbyView() {
     setIsMatchmaking(true);
     try {
       const room = await joinMatchmaking("love_letter");
+      setPendingRoom(room);
       router.push(`/room/${room.roomId}`);
     } catch (err: any) {
       alert(err.message || "매칭 실패");

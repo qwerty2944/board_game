@@ -160,19 +160,13 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
       const player = this.state.players.get(client.sessionId);
       if (!player || !message.text) return;
 
-      const chatEntry = JSON.stringify({
-        senderSessionId: client.sessionId,
-        senderName: player.name,
-        text: message.text.slice(0, 500), // Limit message length
+      const chatData = {
+        sender: player.name,
+        text: message.text.slice(0, 500),
         timestamp: Date.now(),
-      });
+      };
 
-      this.state.chatMessages.push(chatEntry);
-
-      // Keep only last 100 messages
-      if (this.state.chatMessages.length > 100) {
-        this.state.chatMessages.splice(0, this.state.chatMessages.length - 100);
-      }
+      this.broadcast(MessageType.CHAT, chatData);
     });
 
     this.onMessage(MessageType.READY, (client, message: { ready: boolean }) => {

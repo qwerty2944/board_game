@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { Room } from "colyseus.js";
-import { getColyseusClient, getGameToken } from "@/shared/lib/colyseus";
+import { getColyseusClient, getGameToken, takePendingRoom } from "@/shared/lib/colyseus";
 import { useRoom } from "@/features/playing-game/model/useRoom";
 import { useGameStore } from "@/entities/game/model/store";
 import { PreGameLobby } from "@/widgets/pre-game-lobby/PreGameLobby";
@@ -31,9 +31,15 @@ export function RoomView() {
 
     const connect = async () => {
       try {
-        const client = getColyseusClient();
-        const token = await getGameToken();
-        const joinedRoom = await client.joinById(roomId, { token });
+        // Reuse room from lobby navigation if available
+        let joinedRoom = takePendingRoom(roomId);
+
+        if (!joinedRoom) {
+          const client = getColyseusClient();
+          const token = await getGameToken();
+          joinedRoom = await client.joinById(roomId, { token });
+        }
+
         roomRef.current = joinedRoom;
         setRoom(joinedRoom);
 
