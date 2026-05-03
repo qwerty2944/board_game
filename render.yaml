@@ -1,10 +1,11 @@
 services:
   - type: web
     name: board-game-server
-    runtime: docker
+    runtime: node
     repo: https://github.com/qwerty2944/board_game
     plan: free
-    dockerfilePath: ./Dockerfile
+    buildCommand: npm install -g pnpm@9.15.4 && pnpm install --frozen-lockfile && pnpm --filter @board-game/shared build && pnpm --filter @board-game/game-logic build && pnpm --filter @board-game/server build
+    startCommand: node apps/server/dist/index.js
     envVars:
       - key: GAME_JWT_SECRET
         value: dev-secret-change-in-production
