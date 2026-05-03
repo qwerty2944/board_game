@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import type { CardInfo } from "@/stores/gameStore";
+import type { CardInfo } from "@/entities/game/model/store";
 
 const CARD_COLORS: Record<number, number> = {
   0: 0x666666, // Jester/Assassin

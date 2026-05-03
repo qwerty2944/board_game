@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { useGameStore, type CardInfo, type PlayerState } from "@/stores/gameStore";
+import { useGameStore, type CardInfo, type PlayerState } from "@/entities/game/model/store";
 import { CardSprite } from "./CardSprite";
 import { PlayerArea } from "./PlayerArea";
 

@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import type { PlayerState } from "@/stores/gameStore";
+import type { PlayerState } from "@/entities/game/model/store";
 
 export class PlayerArea extends Phaser.GameObjects.Container {
   private bg: Phaser.GameObjects.Rectangle;

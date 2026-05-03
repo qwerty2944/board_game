@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
-import { SessionProvider } from "next-auth/react";
 import { auth } from "@/auth";
+import { Providers } from "@/application/providers";
+import { Geist } from "next/font/google";
+import { cn } from "@/shared/lib/utils";
 import "./globals.css";
 
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
+
 export const metadata: Metadata = {
-  title: "Board Game Platform",
-  description: "Multiplayer board games online",
+  title: "보드게임",
+  description: "온라인 멀티플레이어 보드게임",
 };
 
 export default async function RootLayout({
@@ -16,9 +20,9 @@ export default async function RootLayout({
   const session = await auth();
 
   return (
-    <html lang="en">
+    <html lang="ko" className={cn("dark font-sans", geist.variable)}>
       <body className="antialiased">
-        <SessionProvider session={session}>{children}</SessionProvider>
+        <Providers session={session}>{children}</Providers>
       </body>
     </html>
   );
