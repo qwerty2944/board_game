@@ -77,6 +77,11 @@ export function useRoom(room: Room | null) {
     }));
 
     unsubscribers.push($state.players?.onRemove((_player: any, sessionId: string) => {
+      // Don't remove if this sessionId was already replaced by the same user reconnecting
+      // (the new session's onAdd fires before/after onRemove of old session)
+      const currentPlayers = room.state.players as any;
+      if (currentPlayers && currentPlayers.get && currentPlayers.get(sessionId)) return;
+
       const players = new Map(store.getState().players);
       players.delete(sessionId);
       store.getState().setPlayers(players);
@@ -140,18 +145,58 @@ function syncBaseState(room: Room) {
   store.setRoundWinner(state.roundWinner || "");
   store.setGameWinner(state.gameWinner || "");
 
+  // Build complete player map from server state (replaces any stale entries)
+  const freshPlayers = new Map<string, PlayerState>();
+
   if (state.players) {
     state.players.forEach((player: any, sessionId: string) => {
-      syncBasePlayer(sessionId, player);
+      freshPlayers.set(sessionId, {
+        sessionId,
+        name: player.name || "",
+        isAlive: true,
+        isProtected: false,
+        tokens: 0,
+        handCount: 0,
+        hand: [],
+        discardedCards: [],
+        isReady: player.isReady ?? false,
+        isConnected: player.isConnected ?? true,
+      });
     });
   }
 
   if (state.llPlayers) {
     state.llPlayers.forEach((player: any, sessionId: string) => {
-      syncLLPlayer(sessionId, player);
+      const hand: CardInfo[] = [];
+      if (player.hand) {
+        for (let i = 0; i < player.hand.length; i++) {
+          const card = player.hand[i];
+          if (card) hand.push({ id: card.id, value: card.value, name: card.name });
+        }
+      }
+      const discardedCards: CardInfo[] = [];
+      if (player.discardedCards) {
+        for (let i = 0; i < player.discardedCards.length; i++) {
+          const card = player.discardedCards[i];
+          if (card) discardedCards.push({ id: card.id, value: card.value, name: card.name });
+        }
+      }
+      freshPlayers.set(sessionId, {
+        sessionId,
+        name: player.name || "",
+        isAlive: player.isAlive ?? true,
+        isProtected: player.isProtected ?? false,
+        tokens: player.tokens ?? 0,
+        handCount: player.handCount ?? 0,
+        hand,
+        discardedCards,
+        isReady: false,
+        isConnected: true,
+      });
     });
   }
 
+  store.setPlayers(freshPlayers);
   syncFaceUpRemoved(room);
 }
 

@@ -81,19 +81,23 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
   async onJoin(client: Client, options: any, auth: VerifiedUser) {
     // Remove previous session for the same user (prevents duplicates)
     const prevSessionId = this.userToSession.get(auth.id);
+    let shouldBeHost = false;
+
     if (prevSessionId && prevSessionId !== client.sessionId) {
-      const wasHost = this.state.hostSessionId === prevSessionId;
+      shouldBeHost = this.state.hostSessionId === prevSessionId;
+
+      // Set host to new session BEFORE deleting old player,
+      // so other clients never see hostSessionId pointing to a missing player.
+      if (shouldBeHost) {
+        this.state.hostSessionId = client.sessionId;
+      }
+
       this.state.players.delete(prevSessionId);
 
       // Kick the old client connection
       const oldClient = this.clients.find((c) => c.sessionId === prevSessionId);
       if (oldClient) {
-        oldClient.leave(ROOM_CLOSE_CODES.SESSION_REPLACED); // Silent replace
-      }
-
-      // Preserve host status for the new session
-      if (wasHost) {
-        this.state.hostSessionId = client.sessionId;
+        oldClient.leave(ROOM_CLOSE_CODES.SESSION_REPLACED);
       }
     }
 
@@ -114,7 +118,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
     this.state.players.set(client.sessionId, player);
     this.userToSession.set(auth.id, client.sessionId);
 
-    // First player is host
+    // First player becomes host, or if current host somehow invalid
     if (!this.state.hostSessionId || !this.state.players.has(this.state.hostSessionId)) {
       this.state.hostSessionId = client.sessionId;
     }
