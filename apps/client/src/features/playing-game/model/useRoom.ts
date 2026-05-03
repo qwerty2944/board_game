@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import type { Room } from "colyseus.js";
+import { getStateCallbacks } from "colyseus.js";
 import { useGameStore, type CardInfo, type PlayerState } from "@/entities/game/model/store";
 
 export function useRoom(room: Room | null) {
@@ -14,58 +15,64 @@ export function useRoom(room: Room | null) {
 
     store.getState().setLocalSessionId(room.sessionId);
 
-    room.state.listen("phase", (value: string) => {
+    const $ = getStateCallbacks(room) as any;
+    if (!$) return;
+
+    const $state = $(room.state);
+
+    $state.listen("phase", (value: string) => {
       store.getState().setPhase(value);
     });
 
-    room.state.listen("currentTurnSessionId", (value: string) => {
+    $state.listen("currentTurnSessionId", (value: string) => {
       store.getState().setCurrentTurn(value);
     });
 
-    room.state.listen("deckRemaining", (value: number) => {
+    $state.listen("deckRemaining", (value: number) => {
       store.getState().setDeckRemaining(value);
     });
 
-    room.state.listen("pendingActionType", (value: string) => {
+    $state.listen("pendingActionType", (value: string) => {
       const cardValue = room.state.pendingCardValue ?? -1;
       store.getState().setPendingAction(value, cardValue);
     });
 
-    room.state.listen("sycophantTarget", (value: string) => {
+    $state.listen("sycophantTarget", (value: string) => {
       store.getState().setSycophantTarget(value);
     });
 
-    room.state.listen("lastPlayedCardName", (value: string) => {
+    $state.listen("lastPlayedCardName", (value: string) => {
       const cardValue = room.state.lastPlayedCardValue ?? -1;
       store.getState().setLastPlayedCard(value, cardValue);
     });
 
-    room.state.listen("roundWinner", (value: string) => {
+    $state.listen("roundWinner", (value: string) => {
       store.getState().setRoundWinner(value);
     });
 
-    room.state.listen("gameWinner", (value: string) => {
+    $state.listen("gameWinner", (value: string) => {
       store.getState().setGameWinner(value);
     });
 
-    room.state.llPlayers?.onAdd((player: any, sessionId: string) => {
+    $state.llPlayers?.onAdd((player: any, sessionId: string) => {
+      const $player = $(player);
       syncPlayer(sessionId, player);
-      player.listen("isAlive", () => syncPlayer(sessionId, player));
-      player.listen("isProtected", () => syncPlayer(sessionId, player));
-      player.listen("tokens", () => syncPlayer(sessionId, player));
-      player.listen("handCount", () => syncPlayer(sessionId, player));
-      player.hand?.onAdd(() => syncPlayer(sessionId, player));
-      player.hand?.onRemove(() => syncPlayer(sessionId, player));
-      player.discardedCards?.onAdd(() => syncPlayer(sessionId, player));
+      $player.listen("isAlive", () => syncPlayer(sessionId, player));
+      $player.listen("isProtected", () => syncPlayer(sessionId, player));
+      $player.listen("tokens", () => syncPlayer(sessionId, player));
+      $player.listen("handCount", () => syncPlayer(sessionId, player));
+      $player.hand?.onAdd(() => syncPlayer(sessionId, player));
+      $player.hand?.onRemove(() => syncPlayer(sessionId, player));
+      $player.discardedCards?.onAdd(() => syncPlayer(sessionId, player));
     });
 
-    room.state.llPlayers?.onRemove((_player: any, sessionId: string) => {
+    $state.llPlayers?.onRemove((_player: any, sessionId: string) => {
       const players = new Map(store.getState().players);
       players.delete(sessionId);
       store.getState().setPlayers(players);
     });
 
-    room.state.faceUpRemoved?.onAdd(() => {
+    $state.faceUpRemoved?.onAdd(() => {
       syncFaceUpRemoved(room);
     });
 
