@@ -11,19 +11,21 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@board-game/shared": "workspace:*",
     "@board-game/game-logic": "workspace:*",
-    "colyseus": "^0.16.0",
+    "@board-game/shared": "workspace:*",
     "@colyseus/core": "^0.16.0",
+    "@colyseus/monitor": "^0.16.0",
     "@colyseus/schema": "^3.0.0",
     "@colyseus/ws-transport": "^0.16.0",
-    "@colyseus/monitor": "^0.16.0",
-    "jose": "^5.9.0",
-    "express": "^4.21.0"
+    "@types/cors": "^2.8.19",
+    "colyseus": "^0.16.0",
+    "cors": "^2.8.6",
+    "express": "^4.21.0",
+    "jose": "^5.9.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
-    "typescript": "^5.6.3",
-    "tsx": "^4.19.0"
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.3"
   }
 }

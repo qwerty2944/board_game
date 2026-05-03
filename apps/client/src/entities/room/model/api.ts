@@ -1,5 +1,6 @@
 import { getColyseusClient, getGameToken } from "@/shared/lib/colyseus";
-import type { Room, RoomAvailable } from "colyseus.js";
+import { env } from "@/shared/config/env";
+import type { Room } from "colyseus.js";
 import type { RoomCreateOptions, RoomMetadata } from "@board-game/shared";
 
 export async function createRoom(options: RoomCreateOptions): Promise<Room> {
@@ -18,17 +19,14 @@ export async function joinByCode(code: string, password?: string): Promise<Room>
   const client = getColyseusClient();
   const token = await getGameToken();
 
-  const response = await client.http.get<RoomAvailable<RoomMetadata>[]>(
-    "/matchmake/love_letter"
-  );
-  const rooms = response.data || [];
-  const room = rooms.find((r) => r.metadata?.roomCode === code.toUpperCase());
+  const available = await getAvailableRooms();
+  const found = available.find((r) => r.metadata?.roomCode === code.toUpperCase());
 
-  if (!room) {
+  if (!found) {
     throw new Error("해당 코드의 방을 찾을 수 없습니다");
   }
 
-  return client.joinById(room.roomId, { token, password });
+  return client.joinById(found.roomId, { token, password });
 }
 
 export async function joinMatchmaking(gameId: string): Promise<Room> {
@@ -37,14 +35,19 @@ export async function joinMatchmaking(gameId: string): Promise<Room> {
   return client.joinOrCreate(gameId, { token, matchmaking: true });
 }
 
-export async function getAvailableRooms() {
-  const client = getColyseusClient();
-  const response = await client.http.get<RoomAvailable<RoomMetadata>[]>(
-    "/matchmake/love_letter"
-  );
-  const rooms = response.data || [];
+interface AvailableRoom {
+  roomId: string;
+  metadata: RoomMetadata;
+  clients: number;
+}
 
-  return rooms.map((r) => ({
+export async function getAvailableRooms(): Promise<AvailableRoom[]> {
+  const baseUrl = env.colyseusUrl.replace(/^ws/, "http");
+  const res = await fetch(`${baseUrl}/api/rooms`);
+  if (!res.ok) return [];
+  const rooms = await res.json();
+
+  return rooms.map((r: any) => ({
     roomId: r.roomId,
     metadata: r.metadata as RoomMetadata,
     clients: r.clients,

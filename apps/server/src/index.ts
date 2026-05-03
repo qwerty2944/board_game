@@ -1,15 +1,35 @@
-import { Server, LobbyRoom } from "colyseus";
+import { Server, LobbyRoom, matchMaker } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { monitor } from "@colyseus/monitor";
 import express from "express";
+import cors from "cors";
 import { config } from "./config.js";
 import { LoveLetterRoom } from "./rooms/LoveLetterRoom.js";
 
 const app = express();
 
+app.use(cors());
+
 // Health check endpoint
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: Date.now() });
+});
+
+// List available rooms
+app.get("/api/rooms", async (_req, res) => {
+  try {
+    const rooms = await matchMaker.query({ private: false, locked: false });
+    const result = rooms.map((r) => ({
+      roomId: r.roomId,
+      metadata: r.metadata,
+      clients: r.clients,
+      maxClients: r.maxClients,
+      name: r.name,
+    }));
+    res.json(result);
+  } catch {
+    res.json([]);
+  }
 });
 
 // Colyseus monitor (development only)
