@@ -18,14 +18,16 @@ app.get("/health", (_req, res) => {
 // List available rooms
 app.get("/api/rooms", async (_req, res) => {
   try {
-    const rooms = await matchMaker.query({ private: false, locked: false });
-    const result = rooms.map((r) => ({
-      roomId: r.roomId,
-      metadata: r.metadata,
-      clients: r.clients,
-      maxClients: r.maxClients,
-      name: r.name,
-    }));
+    const rooms = await matchMaker.query({ private: false, locked: false, unlisted: false });
+    const result = rooms
+      .filter((r) => r.name !== "lobby" && r.metadata?.status === "waiting")
+      .map((r) => ({
+        roomId: r.roomId,
+        metadata: r.metadata,
+        clients: r.clients,
+        maxClients: r.maxClients,
+        name: r.name,
+      }));
     res.json(result);
   } catch {
     res.json([]);

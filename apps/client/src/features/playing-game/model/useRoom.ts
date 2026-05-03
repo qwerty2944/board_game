@@ -19,88 +19,91 @@ export function useRoom(room: Room | null) {
     if (!$) return;
 
     const $state = $(room.state);
+    const unsubscribers: Array<(() => void) | undefined> = [];
+
+    syncBaseState(room);
 
     // Base state fields
-    $state.listen("phase", (value: string) => {
+    unsubscribers.push($state.listen("phase", (value: string) => {
       store.getState().setPhase(value);
-    });
+    }));
 
-    $state.listen("roomCode", (value: string) => {
+    unsubscribers.push($state.listen("roomCode", (value: string) => {
       store.getState().setRoomCode(value);
-    });
+    }));
 
-    $state.listen("hostSessionId", (value: string) => {
+    unsubscribers.push($state.listen("hostSessionId", (value: string) => {
       store.getState().setHostSessionId(value);
-    });
+    }));
 
     // Love Letter specific fields
-    $state.listen("currentTurnSessionId", (value: string) => {
+    unsubscribers.push($state.listen("currentTurnSessionId", (value: string) => {
       store.getState().setCurrentTurn(value);
-    });
+    }));
 
-    $state.listen("deckRemaining", (value: number) => {
+    unsubscribers.push($state.listen("deckRemaining", (value: number) => {
       store.getState().setDeckRemaining(value);
-    });
+    }));
 
-    $state.listen("pendingActionType", (value: string) => {
+    unsubscribers.push($state.listen("pendingActionType", (value: string) => {
       const cardValue = room.state.pendingCardValue ?? -1;
       store.getState().setPendingAction(value, cardValue);
-    });
+    }));
 
-    $state.listen("sycophantTarget", (value: string) => {
+    unsubscribers.push($state.listen("sycophantTarget", (value: string) => {
       store.getState().setSycophantTarget(value);
-    });
+    }));
 
-    $state.listen("lastPlayedCardName", (value: string) => {
+    unsubscribers.push($state.listen("lastPlayedCardName", (value: string) => {
       const cardValue = room.state.lastPlayedCardValue ?? -1;
       store.getState().setLastPlayedCard(value, cardValue);
-    });
+    }));
 
-    $state.listen("roundWinner", (value: string) => {
+    unsubscribers.push($state.listen("roundWinner", (value: string) => {
       store.getState().setRoundWinner(value);
-    });
+    }));
 
-    $state.listen("gameWinner", (value: string) => {
+    unsubscribers.push($state.listen("gameWinner", (value: string) => {
       store.getState().setGameWinner(value);
-    });
+    }));
 
     // Base players (used during waiting/lobby phase)
-    $state.players?.onAdd((player: any, sessionId: string) => {
+    unsubscribers.push($state.players?.onAdd((player: any, sessionId: string) => {
       syncBasePlayer(sessionId, player);
       const $player = $(player);
-      $player.listen("name", () => syncBasePlayer(sessionId, player));
-      $player.listen("isReady", () => syncBasePlayer(sessionId, player));
-      $player.listen("isConnected", () => syncBasePlayer(sessionId, player));
-    });
+      unsubscribers.push($player.listen("name", () => syncBasePlayer(sessionId, player)));
+      unsubscribers.push($player.listen("isReady", () => syncBasePlayer(sessionId, player)));
+      unsubscribers.push($player.listen("isConnected", () => syncBasePlayer(sessionId, player)));
+    }));
 
-    $state.players?.onRemove((_player: any, sessionId: string) => {
+    unsubscribers.push($state.players?.onRemove((_player: any, sessionId: string) => {
       const players = new Map(store.getState().players);
       players.delete(sessionId);
       store.getState().setPlayers(players);
-    });
+    }));
 
     // Love Letter players (used during playing phase)
-    $state.llPlayers?.onAdd((player: any, sessionId: string) => {
+    unsubscribers.push($state.llPlayers?.onAdd((player: any, sessionId: string) => {
       const $player = $(player);
       syncLLPlayer(sessionId, player);
-      $player.listen("isAlive", () => syncLLPlayer(sessionId, player));
-      $player.listen("isProtected", () => syncLLPlayer(sessionId, player));
-      $player.listen("tokens", () => syncLLPlayer(sessionId, player));
-      $player.listen("handCount", () => syncLLPlayer(sessionId, player));
-      $player.hand?.onAdd(() => syncLLPlayer(sessionId, player));
-      $player.hand?.onRemove(() => syncLLPlayer(sessionId, player));
-      $player.discardedCards?.onAdd(() => syncLLPlayer(sessionId, player));
-    });
+      unsubscribers.push($player.listen("isAlive", () => syncLLPlayer(sessionId, player)));
+      unsubscribers.push($player.listen("isProtected", () => syncLLPlayer(sessionId, player)));
+      unsubscribers.push($player.listen("tokens", () => syncLLPlayer(sessionId, player)));
+      unsubscribers.push($player.listen("handCount", () => syncLLPlayer(sessionId, player)));
+      unsubscribers.push($player.hand?.onAdd(() => syncLLPlayer(sessionId, player)));
+      unsubscribers.push($player.hand?.onRemove(() => syncLLPlayer(sessionId, player)));
+      unsubscribers.push($player.discardedCards?.onAdd(() => syncLLPlayer(sessionId, player)));
+    }));
 
-    $state.llPlayers?.onRemove((_player: any, sessionId: string) => {
+    unsubscribers.push($state.llPlayers?.onRemove((_player: any, sessionId: string) => {
       const players = new Map(store.getState().players);
       players.delete(sessionId);
       store.getState().setPlayers(players);
-    });
+    }));
 
-    $state.faceUpRemoved?.onAdd(() => {
+    unsubscribers.push($state.faceUpRemoved?.onAdd(() => {
       syncFaceUpRemoved(room);
-    });
+    }));
 
     room.onMessage("game_event", (event: { type: string; payload: Record<string, unknown> }) => {
       store.getState().addGameEvent(event);
@@ -108,6 +111,7 @@ export function useRoom(room: Room | null) {
 
     return () => {
       roomRef.current = null;
+      unsubscribers.forEach((unsubscribe) => unsubscribe?.());
     };
   }, [room]);
 
@@ -119,6 +123,36 @@ export function useRoom(room: Room | null) {
   );
 
   return { sendMessage };
+}
+
+function syncBaseState(room: Room) {
+  const store = useGameStore.getState();
+  const state = room.state as any;
+
+  store.setPhase(state.phase || "waiting");
+  store.setRoomCode(state.roomCode || "");
+  store.setHostSessionId(state.hostSessionId || "");
+  store.setCurrentTurn(state.currentTurnSessionId || "");
+  store.setDeckRemaining(state.deckRemaining ?? 0);
+  store.setPendingAction(state.pendingActionType || "", state.pendingCardValue ?? -1);
+  store.setSycophantTarget(state.sycophantTarget || "");
+  store.setLastPlayedCard(state.lastPlayedCardName || "", state.lastPlayedCardValue ?? -1);
+  store.setRoundWinner(state.roundWinner || "");
+  store.setGameWinner(state.gameWinner || "");
+
+  if (state.players) {
+    state.players.forEach((player: any, sessionId: string) => {
+      syncBasePlayer(sessionId, player);
+    });
+  }
+
+  if (state.llPlayers) {
+    state.llPlayers.forEach((player: any, sessionId: string) => {
+      syncLLPlayer(sessionId, player);
+    });
+  }
+
+  syncFaceUpRemoved(room);
 }
 
 function syncBasePlayer(sessionId: string, player: any) {

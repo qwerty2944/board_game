@@ -28,7 +28,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
     }
 
     // Set metadata for lobby
-    this.setMetadata({
+    await this.setMetadata({
       gameId: options.gameId,
       roomCode: state.roomCode,
       hostName: options.hostName,
@@ -41,7 +41,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
 
     // Set visibility
     if (options.isPrivate) {
-      this.setPrivate(true);
+      await this.setPrivate(true);
     }
 
     this.maxClients = options.maxPlayers;
@@ -75,7 +75,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
     return user;
   }
 
-  onJoin(client: Client, options: any, auth: VerifiedUser) {
+  async onJoin(client: Client, options: any, auth: VerifiedUser) {
     const player = new PlayerSchema();
     player.sessionId = client.sessionId;
     player.name = auth.name;
@@ -92,7 +92,8 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
     }
 
     // Update metadata
-    this.updatePlayerCount();
+    await this.updatePlayerCount();
+    this.updateReadinessPhase();
 
     // Cancel reconnect timeout if this is a reconnection
     const existingTimeout = this.reconnectTimeouts.get(auth.id);
@@ -115,7 +116,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
 
     if (consented) {
       // Player deliberately left
-      this.removePlayer(client.sessionId);
+      await this.removePlayer(client.sessionId);
     } else {
       // Connection lost - allow reconnection
       try {
@@ -124,20 +125,20 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
         player.isConnected = true;
       } catch {
         // Timeout expired, remove player
-        this.removePlayer(client.sessionId);
+        await this.removePlayer(client.sessionId);
         this.handlePlayerDisconnect(client.sessionId);
       }
     }
   }
 
-  private removePlayer(sessionId: string) {
+  private async removePlayer(sessionId: string) {
     const player = this.state.players.get(sessionId);
     if (player) {
       this.userToSession.delete(player.userId);
     }
 
     this.state.players.delete(sessionId);
-    this.updatePlayerCount();
+    await this.updatePlayerCount();
 
     // Reassign host if host left
     if (this.state.hostSessionId === sessionId) {
@@ -146,6 +147,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
         this.state.hostSessionId = remaining[0];
       }
     }
+    this.updateReadinessPhase();
 
     this.broadcast(MessageType.PLAYER_LEFT, { sessionId });
 
@@ -172,9 +174,10 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
     this.onMessage(MessageType.READY, (client, message: { ready: boolean }) => {
       const player = this.state.players.get(client.sessionId);
       if (!player) return;
-      if (this.state.phase !== "waiting") return;
+      if (this.state.phase !== "waiting" && this.state.phase !== "ready") return;
 
       player.isReady = message.ready;
+      this.updateReadinessPhase();
     });
 
     this.onMessage(MessageType.START_GAME, (client) => {
@@ -189,7 +192,7 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
 
     this.onMessage(MessageType.KICK_PLAYER, (client, message: { targetSessionId: string }) => {
       if (client.sessionId !== this.state.hostSessionId) return;
-      if (this.state.phase !== "waiting") return;
+      if (this.state.phase !== "waiting" && this.state.phase !== "ready") return;
 
       const targetClient = this.clients.find(
         (c) => c.sessionId === message.targetSessionId
@@ -208,19 +211,28 @@ export abstract class BaseGameRoom<TState extends BaseGameState> extends Room<TS
     return code;
   }
 
-  private updatePlayerCount() {
+  private async updatePlayerCount() {
     const metadata = this.metadata as RoomMetadata;
     if (metadata) {
-      metadata.currentPlayers = this.state.players.size;
-      this.setMetadata(metadata);
+      await this.setMetadata({
+        ...metadata,
+        currentPlayers: this.state.players.size,
+      });
     }
   }
 
   protected updateMetadataStatus(status: "waiting" | "playing" | "finished") {
     const metadata = this.metadata as RoomMetadata;
     if (metadata) {
-      metadata.status = status;
-      this.setMetadata(metadata);
+      void this.setMetadata({
+        ...metadata,
+        status,
+      });
     }
+  }
+
+  private updateReadinessPhase() {
+    if (this.state.phase !== "waiting" && this.state.phase !== "ready") return;
+    this.state.phase = this.canStart() ? "ready" : "waiting";
   }
 }
