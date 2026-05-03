@@ -1,47 +1,37 @@
-# Multi-stage build for Colyseus game server (Hathora deployment)
-FROM node:20-slim AS base
+# Multi-stage build for Colyseus game server
+FROM node:20-slim AS builder
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+
+WORKDIR /app
+
+# Copy all workspace files
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY packages/shared/ ./packages/shared/
+COPY packages/game-logic/ ./packages/game-logic/
+COPY apps/server/ ./apps/server/
+COPY apps/client/package.json ./apps/client/
 
 # Install dependencies
-FROM base AS deps
-WORKDIR /app
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/game-logic/package.json ./packages/game-logic/
-COPY apps/server/package.json ./apps/server/
-RUN pnpm install --frozen-lockfile || pnpm install
+RUN pnpm install --frozen-lockfile
 
-# Build
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
-COPY --from=deps /app/packages/game-logic/node_modules ./packages/game-logic/node_modules
-COPY --from=deps /app/apps/server/node_modules ./apps/server/node_modules
-COPY . .
-
-# Build shared -> game-logic -> server
+# Build in dependency order
 RUN pnpm --filter @board-game/shared build && \
     pnpm --filter @board-game/game-logic build && \
     pnpm --filter @board-game/server build
 
+# Use pnpm deploy to create standalone production bundle
+RUN pnpm --filter @board-game/server deploy /app/deploy --prod
+
 # Production image
-FROM base AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Copy built artifacts
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=builder /app/packages/shared/package.json ./packages/shared/
-COPY --from=builder /app/packages/game-logic/dist ./packages/game-logic/dist
-COPY --from=builder /app/packages/game-logic/package.json ./packages/game-logic/
-COPY --from=builder /app/apps/server/dist ./apps/server/dist
-COPY --from=builder /app/apps/server/package.json ./apps/server/
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
+# Copy the deployed standalone bundle
+COPY --from=builder /app/deploy ./
 
-EXPOSE 2567
+EXPOSE 10000
 
-CMD ["node", "apps/server/dist/index.js"]
+CMD ["node", "dist/index.js"]
