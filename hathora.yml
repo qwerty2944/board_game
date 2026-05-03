@@ -1,0 +1,17 @@
+version: 2
+
+build:
+  dockerfile: Dockerfile
+  context: .
+
+networking:
+  port: 2567
+  transportType: ws
+
+scaling:
+  idleTimeoutSeconds: 300
+  roomsPerProcess: 5
+  maxProcesses: 5
+
+auth:
+  anonymous: true
